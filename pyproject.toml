@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "ncn-milepost-openstreetmap-map"
+version = "0.1.0"
+description = "Generates a map of National Cycle Network mileposts"
+authors = ["Leif Gehrmann <leif.gehrmann@gmail.com>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+map-engraver = {git = "https://github.com/leifgehrmann/map-engraver.git"}
+
+[tool.poetry.dev-dependencies]
+flake8 = "^3.9.2"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
