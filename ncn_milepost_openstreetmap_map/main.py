@@ -1,6 +1,7 @@
 from pathlib import Path
 import os
 import urllib.request
+import urllib.parse
 import zipfile
 import shutil
 
@@ -57,8 +58,25 @@ download_and_extract_shape(ne_land_url)
 download_and_extract_shape(ne_islands_url)
 download_and_extract_shape(ne_lakes_url)
 
+
 # 2. Download OpenStreetMap milepost data. In GitHub Actions, use mock milepost
 #    data.
+def download_mileposts():
+    osm_path = Path(__file__).parent.parent.joinpath('cache/mileposts.osm')
+    if osm_path.exists():
+        return
+    bbox = '%f,%f,%f,%f' % (49.9599, -8.1956, 60.8842, 1.7746)
+    query = '''[timeout:25];(node[ncn_milepost](%s););out;''' % bbox
+    url_encoded_query = urllib.parse.urlencode({'data': query})
+    url = 'http://overpass-api.de/api/interpreter?%s' % url_encoded_query
+    data = urllib.request.urlopen(url).read().decode()
+    file = open(osm_path.as_posix(), 'w+')
+    file.write(data)
+    file.close()
+
+
+download_mileposts()
+
 # 3. Render the map (Later, create a dark-mode variant)
 Path(__file__).parent.parent.joinpath('output/') \
     .mkdir(parents=True, exist_ok=True)
