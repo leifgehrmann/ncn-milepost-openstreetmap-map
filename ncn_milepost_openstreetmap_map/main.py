@@ -1,3 +1,13 @@
+from typing import List
+
+import pyproj
+from shapely import ops
+from map_engraver.drawable.geometry.polygon_drawer import PolygonDrawer
+from map_engraver.drawable.layout.background import Background
+from map_engraver.transformers.geo_canvas_scale import GeoCanvasScale
+from map_engraver.transformers.geo_canvas_transformers import \
+    build_geo_to_canvas_transformer
+from map_engraver.transformers.geo_coordinate import GeoCoordinate
 from pathlib import Path
 import os
 import urllib.request
@@ -5,12 +15,17 @@ import urllib.parse
 import zipfile
 import shutil
 
+import shapefile
+
 from map_engraver.canvas import CanvasBuilder
 from map_engraver.canvas.canvas_unit import CanvasUnit
 
 
 # 1. Download Natural Earth shapefiles. In non-master GitHub Actions, use mock
 #    coastline data.
+from shapely.geometry import Polygon, shape, MultiPolygon
+
+
 def download_and_extract_shape(url):
     # Create cache directory if it does not exist.
     cache_path = Path(__file__).parent.parent.joinpath('cache/')
@@ -20,14 +35,17 @@ def download_and_extract_shape(url):
     # logic could be brittle to changes.
     zip_name = url.split('/')[-1]
     extract_name = url.split('/')[-1].split('.')[0]
-    shape_name = extract_name + '.shp'
+    shp_name = extract_name + '.shp'
+    dbf_name = extract_name + '.dbf'
     zip_path = cache_path.joinpath(zip_name)
     extract_path = cache_path.joinpath(extract_name)
-    extract_shape_path = extract_path.joinpath(shape_name)
-    shape_path = cache_path.joinpath(shape_name)
+    extract_shp_path = extract_path.joinpath(shp_name)
+    extract_dbf_path = extract_path.joinpath(dbf_name)
+    shp_path = cache_path.joinpath(shp_name)
+    dbf_path = cache_path.joinpath(dbf_name)
 
     # Check if Shapefile already exists. Skip if it does.
-    if shape_path.exists():
+    if shp_path.exists() and dbf_path.exists():
         return
 
     # Download the ZIP to the cache.
@@ -42,7 +60,8 @@ def download_and_extract_shape(url):
         zf.extractall(extract_path.as_posix())
 
     # Move Shapefile out of the extract directory to the cache directory.
-    os.rename(extract_shape_path.as_posix(), shape_path.as_posix())
+    os.rename(extract_shp_path.as_posix(), shp_path.as_posix())
+    os.rename(extract_dbf_path.as_posix(), dbf_path.as_posix())
 
     # Delete ZIP and Extract.
     os.unlink(zip_path.as_posix())
@@ -57,6 +76,33 @@ ne_lakes_url = ne_root_url + '10m/physical/ne_10m_lakes.zip'
 download_and_extract_shape(ne_land_url)
 download_and_extract_shape(ne_islands_url)
 download_and_extract_shape(ne_lakes_url)
+
+
+# 1.1 Convert Shapefiles to shapely geometry.
+def parse_shapefile(shapefile_name: str):
+    cache_path = Path(__file__).parent.parent.joinpath('cache')
+    shapefile_path = cache_path.joinpath(shapefile_name)
+    shapefile_collection = shapefile.Reader(shapefile_path.as_posix())
+    shapely_objects = []
+    for shape_record in shapefile_collection.shapeRecords():
+        shapely_objects.append(shape(shape_record.shape.__geo_interface__))
+    return shapely_objects
+
+
+land_shapes = parse_shapefile('ne_10m_land.shp')
+island_shapes = parse_shapefile('ne_10m_minor_islands.shp')
+lake_shapes = parse_shapefile('ne_10m_lakes.shp')
+
+
+# Invert CRS for shapes, because shape files are dumb
+def transform_polygons_to_invert(polygons: List[Polygon]):
+    return list(map(lambda geom: ops.transform(
+        lambda x, y: (y, x), geom), polygons))
+
+
+land_shapes = transform_polygons_to_invert(land_shapes)
+island_shapes = transform_polygons_to_invert(island_shapes)
+lake_shapes = transform_polygons_to_invert(lake_shapes)
 
 
 # 2. Download OpenStreetMap milepost data. In GitHub Actions, use mock milepost
@@ -77,6 +123,58 @@ def download_mileposts():
 
 download_mileposts()
 
+
+# clip any geoms that appear outside of the geometry
+def clip_polygons(
+        polygons: List[Polygon],
+        clip_polygon: Polygon
+) -> List[Polygon]:
+    output = []
+    for polygon in polygons:
+        output_p = polygon.intersection(clip_polygon)
+        if type(output_p) is MultiPolygon:
+            for geom in output_p.geoms:
+                output.append(geom)
+        elif not output_p.is_empty:
+            output.append(output_p)
+    return output
+
+
+british_isles_clip_polygon = Polygon([
+    (48, -12),
+    (62, -12),
+    (62, 4),
+    (48, 4),
+    (48, -12)
+])
+land_shapes = clip_polygons(land_shapes, british_isles_clip_polygon)
+island_shapes = clip_polygons(island_shapes, british_isles_clip_polygon)
+lake_shapes = clip_polygons(lake_shapes, british_isles_clip_polygon)
+
+
+# Project coordinates to canvas
+wgs84_crs = pyproj.CRS.from_epsg(4326)
+british_crs = pyproj.CRS.from_epsg(27700)
+geo_canvas_scale = GeoCanvasScale(840000, CanvasUnit.from_px(720))
+origin_for_geo = GeoCoordinate(-100000, 1250000, british_crs)
+wgs84_canvas_transformer = build_geo_to_canvas_transformer(
+    crs=british_crs,
+    scale=geo_canvas_scale,
+    origin_for_geo=origin_for_geo,
+    data_crs=wgs84_crs
+)
+
+
+# Transform array of polygons to canvas:
+def transform_polygons_to_canvas(polygons: List[Polygon]):
+    return list(map(lambda geom: ops.transform(
+        wgs84_canvas_transformer, geom), polygons))
+
+
+land_shapes = transform_polygons_to_canvas(land_shapes)
+island_shapes = transform_polygons_to_canvas(island_shapes)
+lake_shapes = transform_polygons_to_canvas(lake_shapes)
+
 # 3. Render the map (Later, create a dark-mode variant)
 Path(__file__).parent.parent.joinpath('output/') \
     .mkdir(parents=True, exist_ok=True)
@@ -84,10 +182,33 @@ path = Path(__file__).parent.joinpath('../output/map.svg')
 path.unlink(missing_ok=True)
 canvas_builder = CanvasBuilder()
 canvas_builder.set_path(path)
-canvas_builder.set_size(CanvasUnit.from_mm(120), CanvasUnit.from_mm(185))
+canvas_builder.set_size(CanvasUnit.from_px(720), CanvasUnit.from_px(1110))
 canvas = canvas_builder.build()
-# 3.1 Land
+# 3.0 Background
+bg = Background()
+bg.color = (0.8, 0.9, 1)
+bg.draw(canvas)
+# 3.1.1 Land
+land_drawer = PolygonDrawer()
+land_drawer.fill_color = (1, 1, 1)
+land_drawer.stroke_color = (0, 0, 0)
+land_drawer.stroke_width = CanvasUnit.from_px(0.5)
+land_drawer.polygons = land_shapes
+land_drawer.draw(canvas)
+# 3.1.2 Islands
+land_drawer = PolygonDrawer()
+land_drawer.polygons = island_shapes
+land_drawer.fill_color = (1, 1, 1)
+land_drawer.stroke_color = (0, 0, 0)
+land_drawer.stroke_width = CanvasUnit.from_px(0.5)
+land_drawer.draw(canvas)
 # 3.2 Lakes
+lakes_drawer = PolygonDrawer()
+lakes_drawer.polygons = lake_shapes
+lakes_drawer.fill_color = (0.8, 0.9, 1)
+lakes_drawer.stroke_color = (0, 0, 0)
+lakes_drawer.stroke_width = CanvasUnit.from_px(0.5)
+lakes_drawer.draw(canvas)
 # 3.3 Milepost Symbols
 # 3.4 Title and Labels
 # 3.5 Margins

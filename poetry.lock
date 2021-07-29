@@ -172,6 +172,14 @@ python-versions = ">=3.7"
 certifi = "*"
 
 [[package]]
+name = "pyshp"
+version = "2.1.3"
+description = "Pure Python read/write support for ESRI Shapefile format"
+category = "main"
+optional = false
+python-versions = ">= 2.7"
+
+[[package]]
 name = "shapely"
 version = "1.7.1"
 description = "Geometric objects, predicates, and operations"
@@ -226,7 +234,7 @@ python-versions = "*"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.9"
-content-hash = "ea337de3eabe1b30f3b719f9a6c55a2dac224a5c53ab723512e016d52a5f8591"
+content-hash = "19653fed3eb2db646b2286679f1f12b515d7e937107122512e9923192b8a65c9"
 
 [metadata.files]
 cairocffi = [
@@ -381,6 +389,9 @@ pyproj = [
     {file = "pyproj-3.1.0-cp39-cp39-win32.whl", hash = "sha256:ae5534fa7a3b74f20534694d297fce6f7483890ff6ca404394ecf372f3c589d4"},
     {file = "pyproj-3.1.0-cp39-cp39-win_amd64.whl", hash = "sha256:808f5992320e9631b2e45444028a65cd6ba3ee40229292934178ef07020a5ffd"},
     {file = "pyproj-3.1.0.tar.gz", hash = "sha256:67b94f4e694ae33fc90dfb7da0e6b5ed5f671dd0acc2f6cf46e9c39d56e16e1a"},
+]
+pyshp = [
+    {file = "pyshp-2.1.3.tar.gz", hash = "sha256:e32b4a6832a3b97986df442df63b4c4a7dcc846b326c903189530a5cc6df0260"},
 ]
 shapely = [
     {file = "Shapely-1.7.1-1-cp39-cp39-manylinux1_x86_64.whl", hash = "sha256:46da0ea527da9cf9503e66c18bab6981c5556859e518fe71578b47126e54ca93"},
