@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Union
 
 import pyproj
 from shapely import ops
@@ -73,9 +73,13 @@ ne_root_url = 'https://www.naturalearthdata.com/' \
 ne_land_url = ne_root_url + '10m/physical/ne_10m_land.zip'
 ne_islands_url = ne_root_url + '10m/physical/ne_10m_minor_islands.zip'
 ne_lakes_url = ne_root_url + '10m/physical/ne_10m_lakes.zip'
+ne_lakes_eu_url = ne_root_url + '10m/physical/ne_10m_lakes_europe.zip'
+ne_urban_url = ne_root_url + '10m/cultural/ne_10m_urban_areas.zip'
 download_and_extract_shape(ne_land_url)
 download_and_extract_shape(ne_islands_url)
 download_and_extract_shape(ne_lakes_url)
+download_and_extract_shape(ne_lakes_eu_url)
+download_and_extract_shape(ne_urban_url)
 
 
 # 1.1 Convert Shapefiles to shapely geometry.
@@ -92,6 +96,8 @@ def parse_shapefile(shapefile_name: str):
 land_shapes = parse_shapefile('ne_10m_land.shp')
 island_shapes = parse_shapefile('ne_10m_minor_islands.shp')
 lake_shapes = parse_shapefile('ne_10m_lakes.shp')
+lake_eu_shapes = parse_shapefile('ne_10m_lakes_europe.shp')
+urban_shapes = parse_shapefile('ne_10m_urban_areas.shp')
 
 
 # Invert CRS for shapes, because shape files are dumb
@@ -103,6 +109,8 @@ def transform_polygons_to_invert(polygons: List[Polygon]):
 land_shapes = transform_polygons_to_invert(land_shapes)
 island_shapes = transform_polygons_to_invert(island_shapes)
 lake_shapes = transform_polygons_to_invert(lake_shapes)
+lake_eu_shapes = transform_polygons_to_invert(lake_eu_shapes)
+urban_shapes = transform_polygons_to_invert(urban_shapes)
 
 
 # 2. Download OpenStreetMap milepost data. In GitHub Actions, use mock milepost
@@ -125,6 +133,19 @@ download_mileposts()
 
 
 # clip any geoms that appear outside of the geometry
+def convert_multipolygons_to_polygons(
+        geoms: List[Union[Polygon, MultiPolygon]]
+) -> List[Polygon]:
+    output = []
+    for geom in geoms:
+        if type(geom) is MultiPolygon:
+            for sub_geom in geom.geoms:
+                output.append(sub_geom)
+        else:
+            output.append(geom)
+    return output
+
+
 def clip_polygons(
         polygons: List[Polygon],
         clip_polygon: Polygon
@@ -150,7 +171,26 @@ british_isles_clip_polygon = Polygon([
 land_shapes = clip_polygons(land_shapes, british_isles_clip_polygon)
 island_shapes = clip_polygons(island_shapes, british_isles_clip_polygon)
 lake_shapes = clip_polygons(lake_shapes, british_isles_clip_polygon)
+lake_eu_shapes = clip_polygons(lake_eu_shapes, british_isles_clip_polygon)
+urban_shapes = clip_polygons(urban_shapes, british_isles_clip_polygon)
 
+
+# Subtract lakes from land
+def subtract_lakes_from_land(land: Polygon, lakes: List[Polygon]):
+    for lake in lakes:
+        land = land.difference(lake)
+    return land
+
+
+land_shapes = list(map(
+    lambda geom: subtract_lakes_from_land(geom, lake_shapes),
+    land_shapes
+))
+land_shapes = list(map(
+    lambda geom: subtract_lakes_from_land(geom, lake_eu_shapes),
+    land_shapes
+))
+land_shapes = convert_multipolygons_to_polygons(land_shapes)
 
 # Project coordinates to canvas
 wgs84_crs = pyproj.CRS.from_epsg(4326)
@@ -173,7 +213,7 @@ def transform_polygons_to_canvas(polygons: List[Polygon]):
 
 land_shapes = transform_polygons_to_canvas(land_shapes)
 island_shapes = transform_polygons_to_canvas(island_shapes)
-lake_shapes = transform_polygons_to_canvas(lake_shapes)
+urban_shapes = transform_polygons_to_canvas(urban_shapes)
 
 # 3. Render the map (Later, create a dark-mode variant)
 Path(__file__).parent.parent.joinpath('output/') \
@@ -190,25 +230,29 @@ bg.color = (0.8, 0.9, 1)
 bg.draw(canvas)
 # 3.1.1 Land
 land_drawer = PolygonDrawer()
-land_drawer.fill_color = (1, 1, 1)
-land_drawer.stroke_color = (0, 0, 0)
-land_drawer.stroke_width = CanvasUnit.from_px(0.5)
 land_drawer.polygons = land_shapes
+land_drawer.fill_color = None
+land_drawer.stroke_color = (0, 0, 0)
+land_drawer.stroke_width = CanvasUnit.from_px(1)
+land_drawer.draw(canvas)
+land_drawer.stroke_color = None
+land_drawer.fill_color = (1, 1, 1)
 land_drawer.draw(canvas)
 # 3.1.2 Islands
 land_drawer = PolygonDrawer()
 land_drawer.polygons = island_shapes
-land_drawer.fill_color = (1, 1, 1)
+land_drawer.fill_color = None
 land_drawer.stroke_color = (0, 0, 0)
-land_drawer.stroke_width = CanvasUnit.from_px(0.5)
+land_drawer.stroke_width = CanvasUnit.from_px(1)
 land_drawer.draw(canvas)
-# 3.2 Lakes
-lakes_drawer = PolygonDrawer()
-lakes_drawer.polygons = lake_shapes
-lakes_drawer.fill_color = (0.8, 0.9, 1)
-lakes_drawer.stroke_color = (0, 0, 0)
-lakes_drawer.stroke_width = CanvasUnit.from_px(0.5)
-lakes_drawer.draw(canvas)
+land_drawer.stroke_color = None
+land_drawer.fill_color = (1, 1, 1)
+land_drawer.draw(canvas)
+# 3.2 Urban Areas
+urban_drawer = PolygonDrawer()
+urban_drawer.polygons = urban_shapes
+urban_drawer.fill_color = (0.95, 0.95, 0.90)
+urban_drawer.draw(canvas)
 # 3.3 Milepost Symbols
 # 3.4 Title and Labels
 # 3.5 Margins
