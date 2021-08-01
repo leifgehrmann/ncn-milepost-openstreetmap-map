@@ -2,6 +2,7 @@ from typing import List, Union
 
 import pyproj
 from shapely import ops
+from shapely.geometry import Polygon, shape, MultiPolygon
 from map_engraver.drawable.geometry.polygon_drawer import PolygonDrawer
 from map_engraver.drawable.layout.background import Background
 from map_engraver.transformers.geo_canvas_scale import GeoCanvasScale
@@ -23,9 +24,6 @@ from map_engraver.canvas.canvas_unit import CanvasUnit
 
 # 1. Download Natural Earth shapefiles. In non-master GitHub Actions, use mock
 #    coastline data.
-from shapely.geometry import Polygon, shape, MultiPolygon
-
-
 def download_and_extract_shape(url):
     # Create cache directory if it does not exist.
     cache_path = Path(__file__).parent.parent.joinpath('cache/')
@@ -230,7 +228,7 @@ bg.color = (0.8, 0.9, 1)
 bg.draw(canvas)
 # 3.1.1 Land
 land_drawer = PolygonDrawer()
-land_drawer.polygons = land_shapes
+land_drawer.geoms = land_shapes
 land_drawer.fill_color = None
 land_drawer.stroke_color = (0, 0, 0)
 land_drawer.stroke_width = CanvasUnit.from_px(1)
@@ -240,7 +238,7 @@ land_drawer.fill_color = (1, 1, 1)
 land_drawer.draw(canvas)
 # 3.1.2 Islands
 land_drawer = PolygonDrawer()
-land_drawer.polygons = island_shapes
+land_drawer.geoms = island_shapes
 land_drawer.fill_color = None
 land_drawer.stroke_color = (0, 0, 0)
 land_drawer.stroke_width = CanvasUnit.from_px(1)
@@ -250,8 +248,8 @@ land_drawer.fill_color = (1, 1, 1)
 land_drawer.draw(canvas)
 # 3.2 Urban Areas
 urban_drawer = PolygonDrawer()
-urban_drawer.polygons = urban_shapes
-urban_drawer.fill_color = (0.95, 0.95, 0.90)
+urban_drawer.geoms = urban_shapes
+urban_drawer.fill_color = (0.95, 0.95, 0.95)
 urban_drawer.draw(canvas)
 # 3.3 Milepost Symbols
 # 3.4 Title and Labels
