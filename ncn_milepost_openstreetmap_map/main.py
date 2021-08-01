@@ -131,31 +131,15 @@ download_mileposts()
 
 
 # clip any geoms that appear outside of the geometry
-def convert_multipolygons_to_polygons(
-        geoms: List[Union[Polygon, MultiPolygon]]
-) -> List[Polygon]:
-    output = []
-    for geom in geoms:
-        if type(geom) is MultiPolygon:
-            for sub_geom in geom.geoms:
-                output.append(sub_geom)
-        else:
-            output.append(geom)
-    return output
-
-
 def clip_polygons(
         polygons: List[Polygon],
         clip_polygon: Polygon
-) -> List[Polygon]:
+) -> List[Union[Polygon, MultiPolygon]]:
     output = []
     for polygon in polygons:
-        output_p = polygon.intersection(clip_polygon)
-        if type(output_p) is MultiPolygon:
-            for geom in output_p.geoms:
-                output.append(geom)
-        elif not output_p.is_empty:
-            output.append(output_p)
+        polygon_intersection = polygon.intersection(clip_polygon)
+        if not polygon_intersection.is_empty:
+            output.append(polygon_intersection)
     return output
 
 
@@ -188,7 +172,6 @@ land_shapes = list(map(
     lambda geom: subtract_lakes_from_land(geom, lake_eu_shapes),
     land_shapes
 ))
-land_shapes = convert_multipolygons_to_polygons(land_shapes)
 
 # Project coordinates to canvas
 wgs84_crs = pyproj.CRS.from_epsg(4326)
