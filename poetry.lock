@@ -118,7 +118,7 @@ tqdm = "^4.58.0"
 type = "git"
 url = "https://github.com/leifgehrmann/map-engraver.git"
 reference = "master"
-resolved_reference = "165e436ec853cb8153fcb781b06e4162a3a63a33"
+resolved_reference = "687114fd709195450c61f643a7fc84b0514fcfce"
 
 [[package]]
 name = "mccabe"

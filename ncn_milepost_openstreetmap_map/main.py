@@ -1,8 +1,16 @@
-from typing import List, Union
+import cairocffi
+from map_engraver.data.osm import Element, Node
+from map_engraver.data.osm.filter import filter_elements
+from map_engraver.data.osm.parser import Parser
+from map_engraver.drawable.geometry.symbol_drawer import SymbolDrawer
+from map_engraver.graphicshelper import CairoHelper
+from map_engraver.transformers.osm_to_shapely import OsmToShapely, OsmPoint
+from typing import List, Union, Tuple, Optional
 
 import pyproj
 from shapely import ops
-from shapely.geometry import Polygon, shape, MultiPolygon
+from shapely.geometry.base import BaseGeometry
+from shapely.geometry import Polygon, shape, MultiPolygon, Point
 from map_engraver.drawable.geometry.polygon_drawer import PolygonDrawer
 from map_engraver.drawable.layout.background import Background
 from map_engraver.transformers.geo_canvas_scale import GeoCanvasScale
@@ -18,7 +26,7 @@ import shutil
 
 import shapefile
 
-from map_engraver.canvas import CanvasBuilder
+from map_engraver.canvas import CanvasBuilder, Canvas
 from map_engraver.canvas.canvas_unit import CanvasUnit
 
 
@@ -99,16 +107,23 @@ urban_shapes = parse_shapefile('ne_10m_urban_areas.shp')
 
 
 # Invert CRS for shapes, because shape files are dumb
-def transform_polygons_to_invert(polygons: List[Polygon]):
-    return list(map(lambda geom: ops.transform(
-        lambda x, y: (y, x), geom), polygons))
+def transform_geom_to_invert(geom: BaseGeometry):
+    new_geom = ops.transform(lambda x, y: (y, x), geom)
+    if isinstance(geom, OsmPoint):
+        new_geom = OsmPoint(new_geom)
+        new_geom.osm_tags = geom.osm_tags
+    return new_geom
 
 
-land_shapes = transform_polygons_to_invert(land_shapes)
-island_shapes = transform_polygons_to_invert(island_shapes)
-lake_shapes = transform_polygons_to_invert(lake_shapes)
-lake_eu_shapes = transform_polygons_to_invert(lake_eu_shapes)
-urban_shapes = transform_polygons_to_invert(urban_shapes)
+def transform_geoms_to_invert(geoms: List[BaseGeometry]):
+    return list(map(lambda geom: transform_geom_to_invert(geom), geoms))
+
+
+land_shapes = transform_geoms_to_invert(land_shapes)
+island_shapes = transform_geoms_to_invert(island_shapes)
+lake_shapes = transform_geoms_to_invert(lake_shapes)
+lake_eu_shapes = transform_geoms_to_invert(lake_eu_shapes)
+urban_shapes = transform_geoms_to_invert(urban_shapes)
 
 
 # 2. Download OpenStreetMap milepost data. In GitHub Actions, use mock milepost
@@ -176,8 +191,8 @@ land_shapes = list(map(
 # Project coordinates to canvas
 wgs84_crs = pyproj.CRS.from_epsg(4326)
 british_crs = pyproj.CRS.from_epsg(27700)
-geo_canvas_scale = GeoCanvasScale(840000, CanvasUnit.from_px(720))
-origin_for_geo = GeoCoordinate(-100000, 1250000, british_crs)
+geo_canvas_scale = GeoCanvasScale(800000, CanvasUnit.from_px(720))
+origin_for_geo = GeoCoordinate(-50000, 1225000, british_crs)
 wgs84_canvas_transformer = build_geo_to_canvas_transformer(
     crs=british_crs,
     scale=geo_canvas_scale,
@@ -187,14 +202,40 @@ wgs84_canvas_transformer = build_geo_to_canvas_transformer(
 
 
 # Transform array of polygons to canvas:
-def transform_polygons_to_canvas(polygons: List[Polygon]):
-    return list(map(lambda geom: ops.transform(
-        wgs84_canvas_transformer, geom), polygons))
+def transform_geom_to_canvas(geom: BaseGeometry):
+    new_geom = ops.transform(wgs84_canvas_transformer, geom)
+    if isinstance(geom, OsmPoint):
+        new_geom = OsmPoint(new_geom)
+        new_geom.osm_tags = geom.osm_tags
+    return new_geom
 
 
-land_shapes = transform_polygons_to_canvas(land_shapes)
-island_shapes = transform_polygons_to_canvas(island_shapes)
-urban_shapes = transform_polygons_to_canvas(urban_shapes)
+def transform_geoms_to_canvas(geoms: List[BaseGeometry]) -> List[BaseGeometry]:
+    return list(map(transform_geom_to_canvas, geoms))
+
+
+land_shapes = transform_geoms_to_canvas(land_shapes)
+island_shapes = transform_geoms_to_canvas(island_shapes)
+urban_shapes = transform_geoms_to_canvas(urban_shapes)
+
+
+# Parse mileposts
+def filter_mileposts(_, element: Element) -> bool:
+    if isinstance(element, Node):
+        return 'ncn_milepost' in element.tags
+    return False
+
+
+milepost_osm_path = Path(__file__).parent.parent.joinpath('cache/mileposts.osm')
+milepost_osm = Parser().parse(milepost_osm_path)
+milepost_osm_subset = filter_elements(milepost_osm, filter_mileposts)
+milepost_osm_to_shapely = OsmToShapely(milepost_osm)
+milepost_points = milepost_osm_to_shapely.nodes_to_points(
+    milepost_osm_subset.nodes
+)
+milepost_points = transform_geoms_to_invert(milepost_points)
+milepost_points = transform_geoms_to_canvas(milepost_points)
+
 
 # 3. Render the map (Later, create a dark-mode variant)
 Path(__file__).parent.parent.joinpath('output/') \
@@ -209,32 +250,101 @@ canvas = canvas_builder.build()
 bg = Background()
 bg.color = (0.8, 0.9, 1)
 bg.draw(canvas)
-# 3.1.1 Land
+# 3.1.1 Land and Islands
 land_drawer = PolygonDrawer()
 land_drawer.geoms = land_shapes
+island_drawer = PolygonDrawer()
+island_drawer.geoms = island_shapes
+
+canvas.context.set_line_join(cairocffi.LINE_JOIN_ROUND)
 land_drawer.fill_color = None
-land_drawer.stroke_color = (0, 0, 0)
-land_drawer.stroke_width = CanvasUnit.from_px(1)
+land_drawer.stroke_color = (0.75, 0.85, 0.95)
+land_drawer.stroke_width = CanvasUnit.from_px(3)
 land_drawer.draw(canvas)
+island_drawer.fill_color = None
+island_drawer.stroke_color = (0.75, 0.85, 0.95)
+island_drawer.stroke_width = CanvasUnit.from_px(3)
+island_drawer.draw(canvas)
+
+land_drawer.stroke_width = CanvasUnit.from_px(1)
+land_drawer.stroke_color = (0.5, 0.6, 0.7)
+land_drawer.draw(canvas)
+island_drawer.stroke_width = CanvasUnit.from_px(1)
+island_drawer.stroke_color = (0.5, 0.6, 0.7)
+island_drawer.draw(canvas)
+
 land_drawer.stroke_color = None
 land_drawer.fill_color = (1, 1, 1)
 land_drawer.draw(canvas)
-# 3.1.2 Islands
-land_drawer = PolygonDrawer()
-land_drawer.geoms = island_shapes
-land_drawer.fill_color = None
-land_drawer.stroke_color = (0, 0, 0)
-land_drawer.stroke_width = CanvasUnit.from_px(1)
-land_drawer.draw(canvas)
-land_drawer.stroke_color = None
-land_drawer.fill_color = (1, 1, 1)
-land_drawer.draw(canvas)
+island_drawer.stroke_color = None
+island_drawer.fill_color = (1, 1, 1)
+island_drawer.draw(canvas)
 # 3.2 Urban Areas
 urban_drawer = PolygonDrawer()
 urban_drawer.geoms = urban_shapes
 urban_drawer.fill_color = (0.95, 0.95, 0.95)
 urban_drawer.draw(canvas)
+
+
 # 3.3 Milepost Symbols
+class MilepostDrawer(SymbolDrawer):
+    def __init__(self):
+        super().__init__()
+        self.size = CanvasUnit.from_px(10).pt
+
+    @staticmethod
+    def get_colors(point: OsmPoint) -> Tuple[
+        Optional[Tuple[float, float, float, float]],
+        Optional[Tuple[float, float, float, float]]
+    ]:
+        if 'ncn_milepost' not in point.osm_tags:
+            return None, None
+        if point.osm_tags['ncn_milepost'] == 'mills':  # 🏴󠁧󠁢󠁥󠁮󠁧󠁿 = Red
+            return (
+                (0.9, 0.3, 0.3, 0.6),
+                (0.7, 0.0, 0.0, 1)
+            )
+        if point.osm_tags['ncn_milepost'] == 'rowe':  # 🏴󠁧󠁢󠁷󠁬󠁳󠁿 = Green
+            return (
+                (0, 0.9, 0, 0.6),
+                (0, 0.7, 0, 1)
+            )
+        if point.osm_tags['ncn_milepost'] == 'mccoll':  # 🏴󠁧󠁢󠁳󠁣󠁴󠁿 = Blue
+            return (
+                (0, 0.6, 1, 0.6),
+                (0, 0.4, 0.7, 1)
+            )
+        if point.osm_tags['ncn_milepost'] == 'dudgeon':  # Ireland = Yellow
+            return (
+                (1, 0.9, 0, 0.6),
+                (0.8, 0.7, 0, 1)
+            )
+        return None, None
+
+    def draw_symbol(self, point: Point, canvas: Canvas):
+        if not isinstance(point, OsmPoint):
+            return
+
+        fill, stroke = self.get_colors(point)
+        if fill is None:
+            return
+
+        canvas.context.set_source_rgba(*fill)
+        CairoHelper.draw_circle(
+            canvas.context,
+            point,
+            CanvasUnit.from_px(6).pt
+        )
+        canvas.context.fill_preserve()
+        canvas.context.set_line_width(CanvasUnit.from_px(0.5).pt)
+        canvas.context.set_source_rgba(*stroke)
+        canvas.context.stroke()
+
+
+milepost_drawer = MilepostDrawer()
+milepost_drawer.points = milepost_points
+milepost_drawer.draw(canvas)
+
 # 3.4 Title and Labels
 # 3.5 Margins
 canvas.close()
