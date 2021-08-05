@@ -4,7 +4,8 @@ from map_engraver.data.osm.filter import filter_elements
 from map_engraver.data.osm.parser import Parser
 from map_engraver.drawable.geometry.symbol_drawer import SymbolDrawer
 from map_engraver.graphicshelper import CairoHelper
-from map_engraver.transformers.osm_to_shapely import OsmToShapely, OsmPoint
+from map_engraver.data.osm_shapely.osm_to_shapely import OsmToShapely
+from map_engraver.data.osm_shapely.osm_point import OsmPoint
 from typing import List, Union, Tuple, Optional
 
 import pyproj
@@ -13,10 +14,8 @@ from shapely.geometry.base import BaseGeometry
 from shapely.geometry import Polygon, shape, MultiPolygon, Point
 from map_engraver.drawable.geometry.polygon_drawer import PolygonDrawer
 from map_engraver.drawable.layout.background import Background
-from map_engraver.transformers.geo_canvas_scale import GeoCanvasScale
-from map_engraver.transformers.geo_canvas_transformers import \
-    build_geo_to_canvas_transformer
-from map_engraver.transformers.geo_coordinate import GeoCoordinate
+from map_engraver.data import geo_canvas_ops
+from map_engraver.data.geo.geo_coordinate import GeoCoordinate
 from pathlib import Path
 import os
 import urllib.request
@@ -191,9 +190,11 @@ land_shapes = list(map(
 # Project coordinates to canvas
 wgs84_crs = pyproj.CRS.from_epsg(4326)
 british_crs = pyproj.CRS.from_epsg(27700)
-geo_canvas_scale = GeoCanvasScale(800000, CanvasUnit.from_px(720))
+geo_width = 800000  # In meters
+canvas_width = CanvasUnit.from_px(720)
+geo_canvas_scale = geo_canvas_ops.GeoCanvasScale(geo_width, canvas_width)
 origin_for_geo = GeoCoordinate(-50000, 1225000, british_crs)
-wgs84_canvas_transformer = build_geo_to_canvas_transformer(
+wgs84_canvas_transformer = geo_canvas_ops.build_transformer(
     crs=british_crs,
     scale=geo_canvas_scale,
     origin_for_geo=origin_for_geo,
