@@ -14,7 +14,7 @@ from shapely.geometry.base import BaseGeometry
 from shapely.geometry import Polygon, shape, MultiPolygon, Point
 from map_engraver.drawable.geometry.polygon_drawer import PolygonDrawer
 from map_engraver.drawable.layout.background import Background
-from map_engraver.data import geo_canvas_ops
+from map_engraver.data import geo_canvas_ops, osm_shapely_ops
 from map_engraver.data.geo.geo_coordinate import GeoCoordinate
 from pathlib import Path
 import os
@@ -105,17 +105,13 @@ lake_eu_shapes = parse_shapefile('ne_10m_lakes_europe.shp')
 urban_shapes = parse_shapefile('ne_10m_urban_areas.shp')
 
 
-# Invert CRS for shapes, because shape files are dumb
-def transform_geom_to_invert(geom: BaseGeometry):
-    new_geom = ops.transform(lambda x, y: (y, x), geom)
-    if isinstance(geom, OsmPoint):
-        new_geom = OsmPoint(new_geom)
-        new_geom.osm_tags = geom.osm_tags
-    return new_geom
-
-
+# Invert CRS for shapes, because shapefiles are store coordinates are lon/lat,
+# not according to the ISO-approved standard.
 def transform_geoms_to_invert(geoms: List[BaseGeometry]):
-    return list(map(lambda geom: transform_geom_to_invert(geom), geoms))
+    return list(map(
+        lambda geom: ops.transform(lambda x, y: (y, x), geom),
+        geoms
+    ))
 
 
 land_shapes = transform_geoms_to_invert(land_shapes)
@@ -204,11 +200,10 @@ wgs84_canvas_transformer = geo_canvas_ops.build_transformer(
 
 # Transform array of polygons to canvas:
 def transform_geom_to_canvas(geom: BaseGeometry):
-    new_geom = ops.transform(wgs84_canvas_transformer, geom)
     if isinstance(geom, OsmPoint):
-        new_geom = OsmPoint(new_geom)
-        new_geom.osm_tags = geom.osm_tags
-    return new_geom
+        return osm_shapely_ops.transform(wgs84_canvas_transformer, geom)
+    else:
+        return ops.transform(wgs84_canvas_transformer, geom)
 
 
 def transform_geoms_to_canvas(geoms: List[BaseGeometry]) -> List[BaseGeometry]:
@@ -234,7 +229,6 @@ milepost_osm_to_shapely = OsmToShapely(milepost_osm)
 milepost_points = milepost_osm_to_shapely.nodes_to_points(
     milepost_osm_subset.nodes
 )
-milepost_points = transform_geoms_to_invert(milepost_points)
 milepost_points = transform_geoms_to_canvas(milepost_points)
 
 
