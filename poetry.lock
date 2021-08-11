@@ -109,6 +109,8 @@ develop = false
 [package.dependencies]
 cairocffi = "^1.2.0"
 CairoSVG = "^2.5.2"
+pangocairocffi = "^0.6.0"
+pangocffi = "^0.10.0"
 Pillow = "^8.3.1"
 pyproj = "^3.1.0"
 Shapely = "^1.7.1"
@@ -118,7 +120,7 @@ tqdm = "^4.58.0"
 type = "git"
 url = "https://github.com/leifgehrmann/map-engraver.git"
 reference = "master"
-resolved_reference = "a35108e9806efe6637c2e5d7ed5f8e1285295678"
+resolved_reference = "c15ce9d846782f76744c37c0d9f7a13e7ccd0cb5"
 
 [[package]]
 name = "mccabe"
@@ -127,6 +129,30 @@ description = "McCabe checker, plugin for flake8"
 category = "dev"
 optional = false
 python-versions = "*"
+
+[[package]]
+name = "pangocairocffi"
+version = "0.6.0"
+description = "CFFI-based pango-cairo bindings for Python"
+category = "main"
+optional = false
+python-versions = ">=3.6"
+
+[package.dependencies]
+cairocffi = ">=1.0.2"
+cffi = ">=1.1.0"
+pangocffi = ">=0.10.0"
+
+[[package]]
+name = "pangocffi"
+version = "0.10.0"
+description = "CFFI-based pango bindings for Python"
+category = "main"
+optional = false
+python-versions = ">=3.6"
+
+[package.dependencies]
+cffi = ">=1.1.0"
 
 [[package]]
 name = "pillow"
@@ -234,7 +260,7 @@ python-versions = "*"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.9"
-content-hash = "7cbc7d9cdd1c6319906980bf0413b17140412ecdf9500a5bff6e5b2f9fe9566a"
+content-hash = "81458e9bb90b50a299c0bd7d6c71626f8274752d93ad409e0cedbcafe88f4131"
 
 [metadata.files]
 cairocffi = [
@@ -315,6 +341,12 @@ map-engraver = []
 mccabe = [
     {file = "mccabe-0.6.1-py2.py3-none-any.whl", hash = "sha256:ab8a6258860da4b6677da4bd2fe5dc2c659cff31b3ee4f7f5d64e79735b80d42"},
     {file = "mccabe-0.6.1.tar.gz", hash = "sha256:dd8d182285a0fe56bace7f45b5e7d1a6ebcbf524e8f3bd87eb0f125271b8831f"},
+]
+pangocairocffi = [
+    {file = "pangocairocffi-0.6.0.tar.gz", hash = "sha256:0be41505990b7b790b140ea95638c0a1e11b4a44ddbe526bca6dd737a316aae5"},
+]
+pangocffi = [
+    {file = "pangocffi-0.10.0.tar.gz", hash = "sha256:77ecc37928a3cd1a1e271265579e1a997ca2cfac095d5ebd2508f329fb070405"},
 ]
 pillow = [
     {file = "Pillow-8.3.1-1-cp36-cp36m-win_amd64.whl", hash = "sha256:fd7eef578f5b2200d066db1b50c4aa66410786201669fb76d5238b007918fb24"},

@@ -1,8 +1,14 @@
+from datetime import datetime
+
 import cairocffi
+import pangocffi
+from map_engraver.canvas.canvas_coordinate import CanvasCoordinate
 from map_engraver.data.osm import Element, Node
 from map_engraver.data.osm.filter import filter_elements
 from map_engraver.data.osm.parser import Parser
+from map_engraver.data.pango.layout import Layout
 from map_engraver.drawable.geometry.symbol_drawer import SymbolDrawer
+from map_engraver.drawable.text.pango_drawer import PangoDrawer
 from map_engraver.graphicshelper import CairoHelper
 from map_engraver.data.osm_shapely.osm_to_shapely import OsmToShapely
 from map_engraver.data.osm_shapely.osm_point import OsmPoint
@@ -188,8 +194,9 @@ wgs84_crs = pyproj.CRS.from_epsg(4326)
 british_crs = pyproj.CRS.from_epsg(27700)
 geo_width = 800000  # In meters
 canvas_width = CanvasUnit.from_px(720)
+canvas_height = CanvasUnit.from_px(1140)
 geo_canvas_scale = geo_canvas_ops.GeoCanvasScale(geo_width, canvas_width)
-origin_for_geo = GeoCoordinate(-50000, 1225000, british_crs)
+origin_for_geo = GeoCoordinate(-80000, 1225000, british_crs)
 wgs84_canvas_transformer = geo_canvas_ops.build_transformer(
     crs=british_crs,
     scale=geo_canvas_scale,
@@ -239,7 +246,7 @@ path = Path(__file__).parent.joinpath('../output/map.svg')
 path.unlink(missing_ok=True)
 canvas_builder = CanvasBuilder()
 canvas_builder.set_path(path)
-canvas_builder.set_size(CanvasUnit.from_px(720), CanvasUnit.from_px(1110))
+canvas_builder.set_size(canvas_width, canvas_height)
 canvas = canvas_builder.build()
 # 3.0 Background
 bg = Background()
@@ -283,6 +290,15 @@ urban_drawer.draw(canvas)
 
 # 3.3 Milepost Symbols
 class MilepostDrawer(SymbolDrawer):
+    mills_fill = (0.9, 0.3, 0.3, 0.6)
+    mills_stroke = (0.7, 0.0, 0.0, 1)
+    rowe_fill = (0, 0.9, 0, 0.6)
+    rowe_stroke = (0, 0.7, 0, 1)
+    mccoll_fill = (0, 0.6, 1, 0.6)
+    mccoll_stroke = (0, 0.4, 0.7, 1)
+    dudgeon_fill = (1, 0.8, 0, 0.6)
+    dudgeon_stroke = (0.7, 0.6, 0, 1)
+
     def __init__(self):
         super().__init__()
         self.size = CanvasUnit.from_px(10).pt
@@ -296,23 +312,23 @@ class MilepostDrawer(SymbolDrawer):
             return None, None
         if point.osm_tags['ncn_milepost'] == 'mills':  # 🏴󠁧󠁢󠁥󠁮󠁧󠁿 = Red
             return (
-                (0.9, 0.3, 0.3, 0.6),
-                (0.7, 0.0, 0.0, 1)
+                MilepostDrawer.mills_fill,
+                MilepostDrawer.mills_stroke
             )
         if point.osm_tags['ncn_milepost'] == 'rowe':  # 🏴󠁧󠁢󠁷󠁬󠁳󠁿 = Green
             return (
-                (0, 0.9, 0, 0.6),
-                (0, 0.7, 0, 1)
+                MilepostDrawer.rowe_fill,
+                MilepostDrawer.rowe_stroke
             )
         if point.osm_tags['ncn_milepost'] == 'mccoll':  # 🏴󠁧󠁢󠁳󠁣󠁴󠁿 = Blue
             return (
-                (0, 0.6, 1, 0.6),
-                (0, 0.4, 0.7, 1)
+                MilepostDrawer.mccoll_fill,
+                MilepostDrawer.mccoll_stroke
             )
         if point.osm_tags['ncn_milepost'] == 'dudgeon':  # Ireland = Yellow
             return (
-                (1, 0.9, 0, 0.6),
-                (0.8, 0.7, 0, 1)
+                MilepostDrawer.dudgeon_fill,
+                MilepostDrawer.dudgeon_stroke
             )
         return None, None
 
@@ -341,5 +357,101 @@ milepost_drawer.points = milepost_points
 milepost_drawer.draw(canvas)
 
 # 3.4 Title and Labels
-# 3.5 Margins
+text_margin = CanvasUnit.from_px(20)
+title_font = pangocffi.FontDescription()
+title_font.set_family('Helvetica')
+title_font.set_weight(pangocffi.Weight.BOLD)
+title_font.set_size(CanvasUnit.from_px(16).pango)
+date_font = pangocffi.FontDescription()
+date_font.set_family('Helvetica')
+date_font.set_weight(pangocffi.Weight.NORMAL)
+date_font.set_size(CanvasUnit.from_px(12).pango)
+legend_font = pangocffi.FontDescription()
+legend_font.set_family('Helvetica')
+legend_font.set_weight(pangocffi.Weight.NORMAL)
+legend_font.set_size(CanvasUnit.from_px(12).pango)
+
+title = Layout(canvas)
+title.pango_layout.set_font_description(title_font)
+title.pango_layout.set_spacing(CanvasUnit.from_px(6).pango)
+title.set_markup('Millennium Mileposts in the United Kingdom by Type')
+title.position = CanvasCoordinate.from_px(text_margin.px, text_margin.px)
+title.width = CanvasUnit.from_px(300)
+
+date = Layout(canvas)
+date.pango_layout.set_font_description(date_font)
+date.set_markup(datetime.now().strftime('Last Updated: %Y-%m-%d'))
+date.width = canvas_width
+date.position = CanvasCoordinate.from_px(
+    text_margin.px,
+    (canvas_height - date.logical_extents.height - text_margin).px
+)
+
+legend_r1_c1 = Layout(canvas)
+legend_r1_c1.pango_layout.set_font_description(legend_font)
+legend_r1_c1.set_text('Mills')
+legend_r1_c2 = Layout(canvas)
+legend_r1_c2.pango_layout.set_font_description(legend_font)
+legend_r1_c2.set_text('Rowe')
+legend_r2_c1 = Layout(canvas)
+legend_r2_c1.pango_layout.set_font_description(legend_font)
+legend_r2_c1.set_text('McColl')
+legend_r2_c2 = Layout(canvas)
+legend_r2_c2.pango_layout.set_font_description(legend_font)
+legend_r2_c2.set_text('Dudgeon')
+
+legend_c1_x = text_margin
+legend_c2_x = legend_c1_x + title.width / 3
+
+legend_r1_y = title.position.y + title.logical_extents.height
+legend_r1_y += CanvasUnit.from_px(20)
+
+legend_r2_y = legend_r1_y + CanvasUnit.from_px(12) + CanvasUnit.from_px(20)
+
+legend_sym_width = CanvasUnit.from_px(12)
+legend_text_height = legend_r1_c1.logical_extents.height
+
+legend_r1_c1_sym = CanvasCoordinate(legend_c1_x + legend_sym_width / 2, legend_r1_y + legend_text_height / 2.5)
+legend_r1_c2_sym = CanvasCoordinate(legend_c2_x + legend_sym_width / 2, legend_r1_y + legend_text_height / 2.5)
+legend_r2_c1_sym = CanvasCoordinate(legend_c1_x + legend_sym_width / 2, legend_r2_y + legend_text_height / 2.5)
+legend_r2_c2_sym = CanvasCoordinate(legend_c2_x + legend_sym_width / 2, legend_r2_y + legend_text_height / 2.5)
+legend_r1_c1.position = CanvasCoordinate(legend_r1_c1_sym.x + legend_sym_width, legend_r1_y)
+legend_r1_c2.position = CanvasCoordinate(legend_r1_c2_sym.x + legend_sym_width, legend_r1_y)
+legend_r2_c1.position = CanvasCoordinate(legend_r2_c1_sym.x + legend_sym_width, legend_r2_y)
+legend_r2_c2.position = CanvasCoordinate(legend_r2_c2_sym.x + legend_sym_width, legend_r2_y)
+
+title_drawer = PangoDrawer()
+title_drawer.pango_objects = [
+    title,
+    date,
+    legend_r1_c1,
+    legend_r1_c2,
+    legend_r2_c1,
+    legend_r2_c2
+]
+title_drawer.draw(canvas)
+
+
+def draw_legend_circle(
+        point: CanvasCoordinate,
+        fill: Tuple[float, float, float, float],
+        stroke: Tuple[float, float, float, float]
+):
+    canvas.context.set_source_rgba(*fill)
+    CairoHelper.draw_circle(
+        canvas.context,
+        Point(point.x.pt, point.y.pt),
+        CanvasUnit.from_px(12).pt
+    )
+    canvas.context.fill_preserve()
+    canvas.context.set_line_width(CanvasUnit.from_px(0.5).pt)
+    canvas.context.set_source_rgba(*stroke)
+    canvas.context.stroke()
+
+
+draw_legend_circle(legend_r1_c1_sym, MilepostDrawer.mills_fill, MilepostDrawer.mills_stroke)
+draw_legend_circle(legend_r1_c2_sym, MilepostDrawer.rowe_fill, MilepostDrawer.rowe_stroke)
+draw_legend_circle(legend_r2_c1_sym, MilepostDrawer.mccoll_fill, MilepostDrawer.mccoll_stroke)
+draw_legend_circle(legend_r2_c2_sym, MilepostDrawer.dudgeon_fill, MilepostDrawer.dudgeon_stroke)
+
 canvas.close()
