@@ -9,13 +9,13 @@ from map_engraver.drawable.geometry.symbol_drawer import SymbolDrawer
 
 
 class MilepostDrawer(SymbolDrawer):
-    mills_fill = (255/255, 66/255, 0/255)
+    mills_fill = (255/255, 66/255, 0/255, 1)
     mills_stroke = (0.0, 0.0, 0.0, 1)
-    rowe_fill = (88/255, 181/255, 61/255)
+    rowe_fill = (88/255, 181/255, 61/255, 1)
     rowe_stroke = (0.0, 0.0, 0.0, 1)
-    mccoll_fill = (95/255, 228/255, 255/255)
+    mccoll_fill = (95/255, 228/255, 255/255, 1)
     mccoll_stroke = (0.0, 0.0, 0.0, 1)
-    dudgeon_fill = (255/255, 240/255, 32/255)
+    dudgeon_fill = (255/255, 240/255, 32/255, 1)
     dudgeon_stroke = (0.0, 0.0, 0.0, 1)
 
     def __init__(self):
@@ -65,12 +65,7 @@ class MilepostDrawer(SymbolDrawer):
             point,
             CanvasUnit.from_px(6).pt
         )
-        canvas.context.fill()
-        canvas.context.set_line_width(CanvasUnit.from_px(1).pt)
+        canvas.context.fill_preserve()
+        canvas.context.set_line_width(CanvasUnit.from_px(0.75).pt)
         canvas.context.set_source_rgba(*stroke)
-        CairoHelper.draw_circle(
-            canvas.context,
-            point,
-            CanvasUnit.from_px(7).pt
-        )
         canvas.context.stroke()
