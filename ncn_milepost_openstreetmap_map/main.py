@@ -191,7 +191,7 @@ canvas_builder.set_size(canvas_width, canvas_height)
 canvas = canvas_builder.build()
 # 3.0 Background
 bg = Background()
-bg.color = (0.8, 0.9, 1)
+bg.color = (184/255, 224/255, 243/255)
 bg.draw(canvas)
 # 3.1.1 Land and Islands
 land_drawer = PolygonDrawer()
@@ -200,21 +200,6 @@ island_drawer = PolygonDrawer()
 island_drawer.geoms = island_shapes
 
 canvas.context.set_line_join(cairocffi.LINE_JOIN_ROUND)
-land_drawer.fill_color = None
-land_drawer.stroke_color = (0.75, 0.85, 0.95)
-land_drawer.stroke_width = CanvasUnit.from_px(3)
-land_drawer.draw(canvas)
-island_drawer.fill_color = None
-island_drawer.stroke_color = (0.75, 0.85, 0.95)
-island_drawer.stroke_width = CanvasUnit.from_px(3)
-island_drawer.draw(canvas)
-
-land_drawer.stroke_width = CanvasUnit.from_px(1)
-land_drawer.stroke_color = (0.5, 0.6, 0.7)
-land_drawer.draw(canvas)
-island_drawer.stroke_width = CanvasUnit.from_px(1)
-island_drawer.stroke_color = (0.5, 0.6, 0.7)
-island_drawer.draw(canvas)
 
 land_drawer.stroke_color = None
 land_drawer.fill_color = (1, 1, 1)
@@ -321,8 +306,13 @@ def draw_legend_circle(
         Point(point.x.pt, point.y.pt),
         CanvasUnit.from_px(12).pt
     )
-    canvas.context.fill_preserve()
-    canvas.context.set_line_width(CanvasUnit.from_px(0.5).pt)
+    canvas.context.fill()
+    CairoHelper.draw_circle(
+        canvas.context,
+        Point(point.x.pt, point.y.pt),
+        CanvasUnit.from_px(13).pt
+    )
+    canvas.context.set_line_width(CanvasUnit.from_px(1).pt)
     canvas.context.set_source_rgba(*stroke)
     canvas.context.stroke()
 
