@@ -34,6 +34,7 @@ jobs:
           brew install libffi
           brew install cairo
           brew install pango
+          brew install gsed
 
       - name: Install dependencies
         run: |
@@ -43,10 +44,19 @@ jobs:
         run: |
           make main
 
+      - name: Remove output from .gitignore (ubuntu)
+        if: runner.os == 'ubuntu'
+        run: |
+          sed -i '/\/output/d' .gitignore
+
+      - name: Remove output from .gitignore (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          gsed -i '/\/output/d' .gitignore
+
       - name: Prepare output for deploy
         run: |
           touch ./output/.nojekyll
-          sed -i '/\/output/d' .gitignore
           echo "ncn-milepost-openstreetmap-map.leifgehrmann.com" >> ./output/CNAME
 
       - name: Deploy
