@@ -58,11 +58,11 @@ ne_islands_url = ne_root_url + '10m/physical/ne_10m_minor_islands.zip'
 ne_lakes_url = ne_root_url + '10m/physical/ne_10m_lakes.zip'
 ne_lakes_eu_url = ne_root_url + '10m/physical/ne_10m_lakes_europe.zip'
 ne_urban_url = ne_root_url + '10m/cultural/ne_10m_urban_areas.zip'
-download_and_extract_shape(ne_land_url)
-download_and_extract_shape(ne_islands_url)
-download_and_extract_shape(ne_lakes_url)
-download_and_extract_shape(ne_lakes_eu_url)
-download_and_extract_shape(ne_urban_url)
+# TODO: download_and_extract_shape(ne_land_url)
+# TODO: download_and_extract_shape(ne_islands_url)
+# TODO: download_and_extract_shape(ne_lakes_url)
+# TODO: download_and_extract_shape(ne_lakes_eu_url)
+# TODO: download_and_extract_shape(ne_urban_url)
 
 
 # 1.1 Convert Shapefiles to shapely geometry.
@@ -76,11 +76,16 @@ def parse_shapefile(shapefile_name: str):
     return shapely_objects
 
 
-land_shapes = parse_shapefile('ne_10m_land.shp')
-island_shapes = parse_shapefile('ne_10m_minor_islands.shp')
-lake_shapes = parse_shapefile('ne_10m_lakes.shp')
-lake_eu_shapes = parse_shapefile('ne_10m_lakes_europe.shp')
-urban_shapes = parse_shapefile('ne_10m_urban_areas.shp')
+# TODO: land_shapes = parse_shapefile('ne_10m_land.shp')
+# TODO: island_shapes = parse_shapefile('ne_10m_minor_islands.shp')
+# TODO: lake_shapes = parse_shapefile('ne_10m_lakes.shp')
+# TODO: lake_eu_shapes = parse_shapefile('ne_10m_lakes_europe.shp')
+# TODO: urban_shapes = parse_shapefile('ne_10m_urban_areas.shp')
+land_shapes = []
+island_shapes = []
+lake_shapes = []
+lake_eu_shapes = []
+urban_shapes = []
 
 
 # Invert CRS for shapes, because shapefiles are store coordinates are lon/lat,
@@ -101,7 +106,7 @@ urban_shapes = transform_geoms_to_invert(urban_shapes)
 
 # 2. Download OpenStreetMap milepost data. In GitHub Actions, use mock milepost
 #    data.
-download_mileposts()
+# TODO: download_mileposts()
 
 
 # clip any geoms that appear outside of the geometry
@@ -187,14 +192,15 @@ def filter_mileposts(_, element: Element) -> bool:
     return False
 
 
-milepost_osm_path = Path(__file__).parent.parent.joinpath('cache/mileposts.osm')
-milepost_osm = Parser().parse(milepost_osm_path)
-milepost_osm_subset = filter_elements(milepost_osm, filter_mileposts)
-milepost_osm_to_shapely = OsmToShapely(milepost_osm)
-milepost_points = milepost_osm_to_shapely.nodes_to_points(
-    milepost_osm_subset.nodes
-)
-milepost_points = transform_geoms_to_canvas(milepost_points)
+# TODO: milepost_osm_path = Path(__file__).parent.parent.joinpath('cache/mileposts.osm')
+# TODO: milepost_osm = Parser().parse(milepost_osm_path)
+# TODO: milepost_osm_subset = filter_elements(milepost_osm, filter_mileposts)
+# TODO: milepost_osm_to_shapely = OsmToShapely(milepost_osm)
+# TODO: milepost_points = milepost_osm_to_shapely.nodes_to_points(
+# TODO:     milepost_osm_subset.nodes
+# TODO: )
+# TODO: milepost_points = transform_geoms_to_canvas(milepost_points)
+milepost_points = []
 
 
 # 3. Render the map (Later, create a dark-mode variant)
