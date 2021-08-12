@@ -31,6 +31,23 @@ from map_engraver.canvas.canvas_unit import CanvasUnit
 from ncn_milepost_openstreetmap_map.data_retriever import download_and_extract_shape, download_mileposts
 from ncn_milepost_openstreetmap_map.milepost_drawer import MilepostDrawer
 
+import sys
+
+
+mode = 'light'
+if '--dark' in sys.argv:
+    mode = 'dark'
+
+background_fill_color = (184/255, 224/255, 243/255, 1)
+land_fill_color = (1, 1, 1, 1)
+urban_fill_color = (0.95, 0.95, 0.95, 1)
+text_fill_color = (0, 0, 0, 1)
+if mode == 'dark':
+    background_fill_color = (17 / 255, 17 / 255, 17 / 255, 1)
+    land_fill_color = (65/255, 65/255, 65/255, 1)
+    urban_fill_color = (74/255, 74/255, 74/255, 1)
+    text_fill_color = (0.9, 0.9, 0.9, 1)
+
 
 # 1. Download Natural Earth shapefiles. In non-master GitHub Actions, use mock
 #    coastline data.
@@ -135,7 +152,7 @@ wgs84_crs = pyproj.CRS.from_epsg(4326)
 british_crs = pyproj.CRS.from_epsg(27700)
 geo_width = 800000  # In meters
 canvas_width = CanvasUnit.from_px(720)
-canvas_height = CanvasUnit.from_px(1140)
+canvas_height = CanvasUnit.from_px(1180)
 geo_canvas_scale = geo_canvas_ops.GeoCanvasScale(geo_width, canvas_width)
 origin_for_geo = GeoCoordinate(-80000, 1225000, british_crs)
 wgs84_canvas_transformer = geo_canvas_ops.build_transformer(
@@ -183,7 +200,7 @@ milepost_points = transform_geoms_to_canvas(milepost_points)
 # 3. Render the map (Later, create a dark-mode variant)
 Path(__file__).parent.parent.joinpath('output/') \
     .mkdir(parents=True, exist_ok=True)
-path = Path(__file__).parent.joinpath('../output/map-light.svg')
+path = Path(__file__).parent.joinpath('../output/map-%s.svg' % mode)
 path.unlink(missing_ok=True)
 canvas_builder = CanvasBuilder()
 canvas_builder.set_path(path)
@@ -191,7 +208,7 @@ canvas_builder.set_size(canvas_width, canvas_height)
 canvas = canvas_builder.build()
 # 3.0 Background
 bg = Background()
-bg.color = (184/255, 224/255, 243/255)
+bg.color = background_fill_color
 bg.draw(canvas)
 # 3.1.1 Land and Islands
 land_drawer = PolygonDrawer()
@@ -202,15 +219,15 @@ island_drawer.geoms = island_shapes
 canvas.context.set_line_join(cairocffi.LINE_JOIN_ROUND)
 
 land_drawer.stroke_color = None
-land_drawer.fill_color = (1, 1, 1)
+land_drawer.fill_color = land_fill_color
 land_drawer.draw(canvas)
 island_drawer.stroke_color = None
-island_drawer.fill_color = (1, 1, 1)
+island_drawer.fill_color = land_fill_color
 island_drawer.draw(canvas)
 # 3.2 Urban Areas
 urban_drawer = PolygonDrawer()
 urban_drawer.geoms = urban_shapes
-urban_drawer.fill_color = (0.95, 0.95, 0.95)
+urban_drawer.fill_color = urban_fill_color
 urban_drawer.draw(canvas)
 
 
@@ -220,7 +237,7 @@ milepost_drawer.points = milepost_points
 milepost_drawer.draw(canvas)
 
 # 3.4 Title and Labels
-text_margin = CanvasUnit.from_px(20)
+text_margin = CanvasUnit.from_px(40)
 title_font = pangocffi.FontDescription()
 title_font.set_family('Helvetica')
 title_font.set_weight(pangocffi.Weight.BOLD)
@@ -238,6 +255,7 @@ title = Layout(canvas)
 title.pango_layout.set_font_description(title_font)
 title.pango_layout.set_spacing(CanvasUnit.from_px(6).pango)
 title.set_markup('Millennium Mileposts in the United Kingdom by Type')
+title.color = text_fill_color
 title.position = CanvasCoordinate.from_px(text_margin.px, text_margin.px)
 title.width = CanvasUnit.from_px(300)
 
@@ -245,6 +263,7 @@ date = Layout(canvas)
 date.pango_layout.set_font_description(date_font)
 date.set_markup(datetime.now().strftime('Last Updated: %Y-%m-%d'))
 date.width = canvas_width
+date.color = text_fill_color
 date.position = CanvasCoordinate.from_px(
     text_margin.px,
     (canvas_height - date.logical_extents.height - text_margin).px
@@ -253,15 +272,19 @@ date.position = CanvasCoordinate.from_px(
 legend_r1_c1 = Layout(canvas)
 legend_r1_c1.pango_layout.set_font_description(legend_font)
 legend_r1_c1.set_text('Mills')
+legend_r1_c1.color = text_fill_color
 legend_r1_c2 = Layout(canvas)
 legend_r1_c2.pango_layout.set_font_description(legend_font)
 legend_r1_c2.set_text('Rowe')
+legend_r1_c2.color = text_fill_color
 legend_r2_c1 = Layout(canvas)
 legend_r2_c1.pango_layout.set_font_description(legend_font)
 legend_r2_c1.set_text('McColl')
+legend_r2_c1.color = text_fill_color
 legend_r2_c2 = Layout(canvas)
 legend_r2_c2.pango_layout.set_font_description(legend_font)
 legend_r2_c2.set_text('Dudgeon')
+legend_r2_c2.color = text_fill_color
 
 legend_c1_x = text_margin
 legend_c2_x = legend_c1_x + title.width / 3

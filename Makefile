@@ -18,8 +18,13 @@ help:
 install: ## install dependencies
 	poetry install
 
-main: ## runs the main script which generates the map
-	poetry run python ncn_milepost_openstreetmap_map/main.py
+main: main-light main-dark  ## runs the main script which generates the map
+
+main-light: ## runs the main script which generates the light-mode map
+	poetry run python ncn_milepost_openstreetmap_map/main.py --light
+
+main-dark: ## runs the main script which generates the dark-mode map
+	poetry run python ncn_milepost_openstreetmap_map/main.py --dark
 
 update-engraver: ## upgrades map-engraver to latest version of master
 	poetry remove map-engraver || true
