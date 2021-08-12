@@ -7,12 +7,11 @@ from map_engraver.data.osm import Element, Node
 from map_engraver.data.osm.filter import filter_elements
 from map_engraver.data.osm.parser import Parser
 from map_engraver.data.pango.layout import Layout
-from map_engraver.drawable.geometry.symbol_drawer import SymbolDrawer
 from map_engraver.drawable.text.pango_drawer import PangoDrawer
 from map_engraver.graphicshelper import CairoHelper
 from map_engraver.data.osm_shapely.osm_to_shapely import OsmToShapely
 from map_engraver.data.osm_shapely.osm_point import OsmPoint
-from typing import List, Union, Tuple, Optional
+from typing import List, Union, Tuple
 
 import pyproj
 from shapely import ops
@@ -23,62 +22,18 @@ from map_engraver.drawable.layout.background import Background
 from map_engraver.data import geo_canvas_ops, osm_shapely_ops
 from map_engraver.data.geo.geo_coordinate import GeoCoordinate
 from pathlib import Path
-import os
-import urllib.request
-import urllib.parse
-import zipfile
-import shutil
 
 import shapefile
 
-from map_engraver.canvas import CanvasBuilder, Canvas
+from map_engraver.canvas import CanvasBuilder
 from map_engraver.canvas.canvas_unit import CanvasUnit
+
+from ncn_milepost_openstreetmap_map.data_retriever import download_and_extract_shape, download_mileposts
+from ncn_milepost_openstreetmap_map.milepost_drawer import MilepostDrawer
 
 
 # 1. Download Natural Earth shapefiles. In non-master GitHub Actions, use mock
 #    coastline data.
-def download_and_extract_shape(url):
-    # Create cache directory if it does not exist.
-    cache_path = Path(__file__).parent.parent.joinpath('cache/')
-    cache_path.mkdir(parents=True, exist_ok=True)
-
-    # Declare file paths. The filenames are inferred from the url, so this
-    # logic could be brittle to changes.
-    zip_name = url.split('/')[-1]
-    extract_name = url.split('/')[-1].split('.')[0]
-    shp_name = extract_name + '.shp'
-    dbf_name = extract_name + '.dbf'
-    zip_path = cache_path.joinpath(zip_name)
-    extract_path = cache_path.joinpath(extract_name)
-    extract_shp_path = extract_path.joinpath(shp_name)
-    extract_dbf_path = extract_path.joinpath(dbf_name)
-    shp_path = cache_path.joinpath(shp_name)
-    dbf_path = cache_path.joinpath(dbf_name)
-
-    # Check if Shapefile already exists. Skip if it does.
-    if shp_path.exists() and dbf_path.exists():
-        return
-
-    # Download the ZIP to the cache.
-    data = urllib.request.urlopen(url)
-    data = data.read()
-    file = open(zip_path.as_posix(), 'wb')
-    file.write(data)
-    file.close()
-
-    # Extract the ZIP within the cache.
-    with zipfile.ZipFile(zip_path.as_posix()) as zf:
-        zf.extractall(extract_path.as_posix())
-
-    # Move Shapefile out of the extract directory to the cache directory.
-    os.rename(extract_shp_path.as_posix(), shp_path.as_posix())
-    os.rename(extract_dbf_path.as_posix(), dbf_path.as_posix())
-
-    # Delete ZIP and Extract.
-    os.unlink(zip_path.as_posix())
-    shutil.rmtree(extract_path.as_posix())
-
-
 ne_root_url = 'https://www.naturalearthdata.com/' \
               'http//www.naturalearthdata.com/download/'
 ne_land_url = ne_root_url + '10m/physical/ne_10m_land.zip'
@@ -129,20 +84,6 @@ urban_shapes = transform_geoms_to_invert(urban_shapes)
 
 # 2. Download OpenStreetMap milepost data. In GitHub Actions, use mock milepost
 #    data.
-def download_mileposts():
-    osm_path = Path(__file__).parent.parent.joinpath('cache/mileposts.osm')
-    if osm_path.exists():
-        return
-    bbox = '%f,%f,%f,%f' % (49.9599, -8.1956, 60.8842, 1.7746)
-    query = '''[timeout:25];(node[ncn_milepost](%s););out;''' % bbox
-    url_encoded_query = urllib.parse.urlencode({'data': query})
-    url = 'http://overpass-api.de/api/interpreter?%s' % url_encoded_query
-    data = urllib.request.urlopen(url).read().decode()
-    file = open(osm_path.as_posix(), 'w+')
-    file.write(data)
-    file.close()
-
-
 download_mileposts()
 
 
@@ -242,7 +183,7 @@ milepost_points = transform_geoms_to_canvas(milepost_points)
 # 3. Render the map (Later, create a dark-mode variant)
 Path(__file__).parent.parent.joinpath('output/') \
     .mkdir(parents=True, exist_ok=True)
-path = Path(__file__).parent.joinpath('../output/map.svg')
+path = Path(__file__).parent.joinpath('../output/map-light.svg')
 path.unlink(missing_ok=True)
 canvas_builder = CanvasBuilder()
 canvas_builder.set_path(path)
@@ -289,69 +230,6 @@ urban_drawer.draw(canvas)
 
 
 # 3.3 Milepost Symbols
-class MilepostDrawer(SymbolDrawer):
-    mills_fill = (0.9, 0.3, 0.3, 0.6)
-    mills_stroke = (0.7, 0.0, 0.0, 1)
-    rowe_fill = (0, 0.9, 0, 0.6)
-    rowe_stroke = (0, 0.7, 0, 1)
-    mccoll_fill = (0, 0.6, 1, 0.6)
-    mccoll_stroke = (0, 0.4, 0.7, 1)
-    dudgeon_fill = (1, 0.8, 0, 0.6)
-    dudgeon_stroke = (0.7, 0.6, 0, 1)
-
-    def __init__(self):
-        super().__init__()
-        self.size = CanvasUnit.from_px(10).pt
-
-    @staticmethod
-    def get_colors(point: OsmPoint) -> Tuple[
-        Optional[Tuple[float, float, float, float]],
-        Optional[Tuple[float, float, float, float]]
-    ]:
-        if 'ncn_milepost' not in point.osm_tags:
-            return None, None
-        if point.osm_tags['ncn_milepost'] == 'mills':  # 🏴󠁧󠁢󠁥󠁮󠁧󠁿 = Red
-            return (
-                MilepostDrawer.mills_fill,
-                MilepostDrawer.mills_stroke
-            )
-        if point.osm_tags['ncn_milepost'] == 'rowe':  # 🏴󠁧󠁢󠁷󠁬󠁳󠁿 = Green
-            return (
-                MilepostDrawer.rowe_fill,
-                MilepostDrawer.rowe_stroke
-            )
-        if point.osm_tags['ncn_milepost'] == 'mccoll':  # 🏴󠁧󠁢󠁳󠁣󠁴󠁿 = Blue
-            return (
-                MilepostDrawer.mccoll_fill,
-                MilepostDrawer.mccoll_stroke
-            )
-        if point.osm_tags['ncn_milepost'] == 'dudgeon':  # Ireland = Yellow
-            return (
-                MilepostDrawer.dudgeon_fill,
-                MilepostDrawer.dudgeon_stroke
-            )
-        return None, None
-
-    def draw_symbol(self, point: Point, canvas: Canvas):
-        if not isinstance(point, OsmPoint):
-            return
-
-        fill, stroke = self.get_colors(point)
-        if fill is None:
-            return
-
-        canvas.context.set_source_rgba(*fill)
-        CairoHelper.draw_circle(
-            canvas.context,
-            point,
-            CanvasUnit.from_px(6).pt
-        )
-        canvas.context.fill_preserve()
-        canvas.context.set_line_width(CanvasUnit.from_px(0.5).pt)
-        canvas.context.set_source_rgba(*stroke)
-        canvas.context.stroke()
-
-
 milepost_drawer = MilepostDrawer()
 milepost_drawer.points = milepost_points
 milepost_drawer.draw(canvas)
