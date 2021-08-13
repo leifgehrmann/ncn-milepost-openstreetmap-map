@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+  schedule:
+    - cron: '0 6 15 * *'
 
 jobs:
   build:
@@ -39,6 +41,10 @@ jobs:
       - name: Install dependencies
         run: |
           make install
+
+      - name: Linting
+        run: |
+          make lint
 
       - name: Generate maps
         run: |

@@ -8,15 +8,14 @@ from map_engraver.data.osm.filter import filter_elements
 from map_engraver.data.osm.parser import Parser
 from map_engraver.data.pango.layout import Layout
 from map_engraver.drawable.text.pango_drawer import PangoDrawer
-from map_engraver.graphicshelper import CairoHelper
 from map_engraver.data.osm_shapely.osm_to_shapely import OsmToShapely
 from map_engraver.data.osm_shapely.osm_point import OsmPoint
-from typing import List, Union, Tuple
+from typing import List, Union
 
 import pyproj
 from shapely import ops
 from shapely.geometry.base import BaseGeometry
-from shapely.geometry import Polygon, shape, MultiPolygon, Point
+from shapely.geometry import Polygon, shape, MultiPolygon
 from map_engraver.drawable.geometry.polygon_drawer import PolygonDrawer
 from map_engraver.drawable.layout.background import Background
 from map_engraver.data import geo_canvas_ops, osm_shapely_ops
@@ -28,12 +27,15 @@ import shapefile
 from map_engraver.canvas import CanvasBuilder
 from map_engraver.canvas.canvas_unit import CanvasUnit
 
-from ncn_milepost_openstreetmap_map.data_retriever import download_and_extract_shape, download_mileposts
+from ncn_milepost_openstreetmap_map.data_retriever import \
+    download_and_extract_shape, download_mileposts
+from ncn_milepost_openstreetmap_map.legend_drawer import LegendDrawer
 from ncn_milepost_openstreetmap_map.milepost_drawer import MilepostDrawer
 
 import sys
 
 
+# Define color scheme depending on mode
 mode = 'light'
 if '--dark' in sys.argv:
     mode = 'dark'
@@ -49,8 +51,7 @@ if mode == 'dark':
     text_fill_color = (0.9, 0.9, 0.9, 1)
 
 
-# 1. Download Natural Earth shapefiles. In non-master GitHub Actions, use mock
-#    coastline data.
+# Download Natural Earth shapefiles
 ne_root_url = 'https://www.naturalearthdata.com/' \
               'http//www.naturalearthdata.com/download/'
 ne_land_url = ne_root_url + '10m/physical/ne_10m_land.zip'
@@ -64,10 +65,16 @@ download_and_extract_shape(ne_lakes_url)
 download_and_extract_shape(ne_lakes_eu_url)
 download_and_extract_shape(ne_urban_url)
 
+# Download OpenStreetMap milepost data
+download_mileposts()
 
-# 1.1 Convert Shapefiles to shapely geometry.
+# Path data
+cache_path = Path(__file__).parent.parent.joinpath('cache')
+output_path = Path(__file__).parent.parent.joinpath('output')
+
+
+# Convert Shapefiles to shapely geometry.
 def parse_shapefile(shapefile_name: str):
-    cache_path = Path(__file__).parent.parent.joinpath('cache')
     shapefile_path = cache_path.joinpath(shapefile_name)
     shapefile_collection = shapefile.Reader(shapefile_path.as_posix())
     shapely_objects = []
@@ -99,12 +106,8 @@ lake_eu_shapes = transform_geoms_to_invert(lake_eu_shapes)
 urban_shapes = transform_geoms_to_invert(urban_shapes)
 
 
-# 2. Download OpenStreetMap milepost data. In GitHub Actions, use mock milepost
-#    data.
-download_mileposts()
-
-
-# clip any geoms that appear outside of the geometry
+# Clip any geoms that appear outside of the geometry. We do this to avoid
+# rendering the entire planet in the SVG unnecessarily.
 def clip_polygons(
         polygons: List[Polygon],
         clip_polygon: Polygon
@@ -187,7 +190,7 @@ def filter_mileposts(_, element: Element) -> bool:
     return False
 
 
-milepost_osm_path = Path(__file__).parent.parent.joinpath('cache/mileposts.osm')
+milepost_osm_path = cache_path.joinpath('mileposts.osm')
 milepost_osm = Parser().parse(milepost_osm_path)
 milepost_osm_subset = filter_elements(milepost_osm, filter_mileposts)
 milepost_osm_to_shapely = OsmToShapely(milepost_osm)
@@ -196,21 +199,21 @@ milepost_points = milepost_osm_to_shapely.nodes_to_points(
 )
 milepost_points = transform_geoms_to_canvas(milepost_points)
 
-
-# 3. Render the map (Later, create a dark-mode variant)
-Path(__file__).parent.parent.joinpath('output/') \
-    .mkdir(parents=True, exist_ok=True)
-path = Path(__file__).parent.joinpath('../output/map-%s.svg' % mode)
+# Create the canvas
+output_path.mkdir(parents=True, exist_ok=True)
+path = output_path.joinpath('map-%s.svg' % mode)
 path.unlink(missing_ok=True)
 canvas_builder = CanvasBuilder()
 canvas_builder.set_path(path)
 canvas_builder.set_size(canvas_width, canvas_height)
 canvas = canvas_builder.build()
-# 3.0 Background
-bg = Background()
-bg.color = background_fill_color
-bg.draw(canvas)
-# 3.1.1 Land and Islands
+
+# Background
+background = Background()
+background.color = background_fill_color
+background.draw(canvas)
+
+# Land and Islands
 land_drawer = PolygonDrawer()
 land_drawer.geoms = land_shapes
 island_drawer = PolygonDrawer()
@@ -218,39 +221,28 @@ island_drawer.geoms = island_shapes
 
 canvas.context.set_line_join(cairocffi.LINE_JOIN_ROUND)
 
-land_drawer.stroke_color = None
 land_drawer.fill_color = land_fill_color
 land_drawer.draw(canvas)
-island_drawer.stroke_color = None
 island_drawer.fill_color = land_fill_color
 island_drawer.draw(canvas)
-# 3.2 Urban Areas
+
+# Urban Areas
 urban_drawer = PolygonDrawer()
 urban_drawer.geoms = urban_shapes
 urban_drawer.fill_color = urban_fill_color
 urban_drawer.draw(canvas)
 
-
-# 3.3 Milepost Symbols
+# Milepost Symbols
 milepost_drawer = MilepostDrawer()
 milepost_drawer.points = milepost_points
 milepost_drawer.draw(canvas)
 
-# 3.4 Title and Labels
+# Map title text
 text_margin = CanvasUnit.from_px(40)
 title_font = pangocffi.FontDescription()
 title_font.set_family('Helvetica')
 title_font.set_weight(pangocffi.Weight.BOLD)
 title_font.set_size(CanvasUnit.from_px(16).pango)
-date_font = pangocffi.FontDescription()
-date_font.set_family('Helvetica')
-date_font.set_weight(pangocffi.Weight.NORMAL)
-date_font.set_size(CanvasUnit.from_px(12).pango)
-legend_font = pangocffi.FontDescription()
-legend_font.set_family('Helvetica')
-legend_font.set_weight(pangocffi.Weight.NORMAL)
-legend_font.set_size(CanvasUnit.from_px(12).pango)
-
 title = Layout(canvas)
 title.pango_layout.set_font_description(title_font)
 title.pango_layout.set_spacing(CanvasUnit.from_px(6).pango)
@@ -258,91 +250,43 @@ title.set_markup('Millennium Mileposts in the United Kingdom by Type')
 title.color = text_fill_color
 title.position = CanvasCoordinate.from_px(text_margin.px, text_margin.px)
 title.width = CanvasUnit.from_px(300)
+title_drawer = PangoDrawer()
+title_drawer.pango_objects = [title]
+title_drawer.draw(canvas)
 
+# "Last Updated" text
+date_font = pangocffi.FontDescription()
+date_font.set_family('Helvetica')
+date_font.set_weight(pangocffi.Weight.NORMAL)
+date_font.set_size(CanvasUnit.from_px(12).pango)
 date = Layout(canvas)
 date.pango_layout.set_font_description(date_font)
 date.set_markup(datetime.now().strftime('Last Updated: %Y-%m-%d'))
 date.width = canvas_width
 date.color = text_fill_color
-date.position = CanvasCoordinate.from_px(
-    text_margin.px,
-    (canvas_height - date.logical_extents.height - text_margin).px
+date.position = CanvasCoordinate(
+    text_margin,
+    canvas_height - date.logical_extents.height - text_margin
 )
+date_drawer = PangoDrawer()
+date_drawer.pango_objects = [date]
+date_drawer.draw(canvas)
 
-legend_r1_c1 = Layout(canvas)
-legend_r1_c1.pango_layout.set_font_description(legend_font)
-legend_r1_c1.set_text('Mills')
-legend_r1_c1.color = text_fill_color
-legend_r1_c2 = Layout(canvas)
-legend_r1_c2.pango_layout.set_font_description(legend_font)
-legend_r1_c2.set_text('Rowe')
-legend_r1_c2.color = text_fill_color
-legend_r2_c1 = Layout(canvas)
-legend_r2_c1.pango_layout.set_font_description(legend_font)
-legend_r2_c1.set_text('McColl')
-legend_r2_c1.color = text_fill_color
-legend_r2_c2 = Layout(canvas)
-legend_r2_c2.pango_layout.set_font_description(legend_font)
-legend_r2_c2.set_text('Dudgeon')
-legend_r2_c2.color = text_fill_color
+# Map legend
+legend_font = pangocffi.FontDescription()
+legend_font.set_family('Helvetica')
+legend_font.set_weight(pangocffi.Weight.NORMAL)
+legend_font.set_size(CanvasUnit.from_px(12).pango)
+legend_position = CanvasCoordinate(
+    text_margin,
+    title.position.y + title.logical_extents.height + CanvasUnit.from_px(20)
+)
+legend_drawer = LegendDrawer(
+    font=legend_font,
+    text_color=text_fill_color,
+    position=legend_position
+)
+legend_drawer.draw(canvas)
 
-legend_c1_x = text_margin
-legend_c2_x = legend_c1_x + title.width / 3
-
-legend_r1_y = title.position.y + title.logical_extents.height
-legend_r1_y += CanvasUnit.from_px(20)
-
-legend_r2_y = legend_r1_y + CanvasUnit.from_px(12) + CanvasUnit.from_px(20)
-
-legend_sym_width = CanvasUnit.from_px(12)
-legend_text_height = legend_r1_c1.logical_extents.height
-
-legend_r1_c1_sym = CanvasCoordinate(legend_c1_x + legend_sym_width / 2, legend_r1_y + legend_text_height / 2.5)
-legend_r1_c2_sym = CanvasCoordinate(legend_c2_x + legend_sym_width / 2, legend_r1_y + legend_text_height / 2.5)
-legend_r2_c1_sym = CanvasCoordinate(legend_c1_x + legend_sym_width / 2, legend_r2_y + legend_text_height / 2.5)
-legend_r2_c2_sym = CanvasCoordinate(legend_c2_x + legend_sym_width / 2, legend_r2_y + legend_text_height / 2.5)
-legend_r1_c1.position = CanvasCoordinate(legend_r1_c1_sym.x + legend_sym_width, legend_r1_y)
-legend_r1_c2.position = CanvasCoordinate(legend_r1_c2_sym.x + legend_sym_width, legend_r1_y)
-legend_r2_c1.position = CanvasCoordinate(legend_r2_c1_sym.x + legend_sym_width, legend_r2_y)
-legend_r2_c2.position = CanvasCoordinate(legend_r2_c2_sym.x + legend_sym_width, legend_r2_y)
-
-title_drawer = PangoDrawer()
-title_drawer.pango_objects = [
-    title,
-    date,
-    legend_r1_c1,
-    legend_r1_c2,
-    legend_r2_c1,
-    legend_r2_c2
-]
-title_drawer.draw(canvas)
-
-
-def draw_legend_circle(
-        point: CanvasCoordinate,
-        fill: Tuple[float, float, float, float],
-        stroke: Tuple[float, float, float, float]
-):
-    canvas.context.set_source_rgba(*fill)
-    CairoHelper.draw_circle(
-        canvas.context,
-        Point(point.x.pt, point.y.pt),
-        CanvasUnit.from_px(12).pt
-    )
-    canvas.context.fill()
-    CairoHelper.draw_circle(
-        canvas.context,
-        Point(point.x.pt, point.y.pt),
-        CanvasUnit.from_px(13).pt
-    )
-    canvas.context.set_line_width(CanvasUnit.from_px(1).pt)
-    canvas.context.set_source_rgba(*stroke)
-    canvas.context.stroke()
-
-
-draw_legend_circle(legend_r1_c1_sym, MilepostDrawer.mills_fill, MilepostDrawer.mills_stroke)
-draw_legend_circle(legend_r1_c2_sym, MilepostDrawer.rowe_fill, MilepostDrawer.rowe_stroke)
-draw_legend_circle(legend_r2_c1_sym, MilepostDrawer.mccoll_fill, MilepostDrawer.mccoll_stroke)
-draw_legend_circle(legend_r2_c2_sym, MilepostDrawer.dudgeon_fill, MilepostDrawer.dudgeon_stroke)
-
+# Finish!
 canvas.close()

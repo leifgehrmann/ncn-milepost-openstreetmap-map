@@ -26,6 +26,9 @@ main-light: ## runs the main script which generates the light-mode map
 main-dark: ## runs the main script which generates the dark-mode map
 	poetry run python ncn_milepost_openstreetmap_map/main.py --dark
 
+lint: ## Checks for linting errors
+	poetry run flake8
+
 update-engraver: ## upgrades map-engraver to latest version of master
 	poetry remove map-engraver || true
 	poetry add git+https://github.com/leifgehrmann/map-engraver.git
