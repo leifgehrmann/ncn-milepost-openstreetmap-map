@@ -52,13 +52,12 @@ if mode == 'dark':
 
 
 # Download Natural Earth shapefiles
-ne_root_url = 'https://www.naturalearthdata.com/' \
-              'http//www.naturalearthdata.com/download/'
-ne_land_url = ne_root_url + '10m/physical/ne_10m_land.zip'
-ne_islands_url = ne_root_url + '10m/physical/ne_10m_minor_islands.zip'
-ne_lakes_url = ne_root_url + '10m/physical/ne_10m_lakes.zip'
-ne_lakes_eu_url = ne_root_url + '10m/physical/ne_10m_lakes_europe.zip'
-ne_urban_url = ne_root_url + '10m/cultural/ne_10m_urban_areas.zip'
+ne_root_url = 'https://naturalearth.s3.amazonaws.com/'
+ne_land_url = ne_root_url + '10m_physical/ne_10m_land.zip'
+ne_islands_url = ne_root_url + '10m_physical/ne_10m_minor_islands.zip'
+ne_lakes_url = ne_root_url + '10m_physical/ne_10m_lakes.zip'
+ne_lakes_eu_url = ne_root_url + '10m_physical/ne_10m_lakes_europe.zip'
+ne_urban_url = ne_root_url + '10m_cultural/ne_10m_urban_areas.zip'
 download_and_extract_shape(ne_land_url)
 download_and_extract_shape(ne_islands_url)
 download_and_extract_shape(ne_lakes_url)
