@@ -4,6 +4,7 @@ import os
 import zipfile
 import urllib.parse
 import urllib.request
+from urllib.error import HTTPError
 
 
 def download_and_extract_shape(url):
@@ -29,11 +30,19 @@ def download_and_extract_shape(url):
         return
 
     # Download the ZIP to the cache.
-    data = urllib.request.urlopen(url)
-    data = data.read()
-    file = open(zip_path.as_posix(), 'wb')
-    file.write(data)
-    file.close()
+    attempts = 0
+    while attempts < 5:
+        try:
+            data = urllib.request.urlopen(url)
+            data = data.read()
+            file = open(zip_path.as_posix(), 'wb')
+            file.write(data)
+            file.close()
+            break
+        except HTTPError as e:
+            if attempts == 4:
+                raise e
+            attempts += 1
 
     # Extract the ZIP within the cache.
     with zipfile.ZipFile(zip_path.as_posix()) as zf:
