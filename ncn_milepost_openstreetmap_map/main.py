@@ -9,7 +9,6 @@ from map_engraver.data.osm.parser import Parser
 from map_engraver.data.pango.layout import Layout
 from map_engraver.drawable.text.pango_drawer import PangoDrawer
 from map_engraver.data.osm_shapely.osm_to_shapely import OsmToShapely
-from map_engraver.data.osm_shapely.osm_point import OsmPoint
 from typing import List, Union
 
 import pyproj
@@ -18,7 +17,7 @@ from shapely.geometry.base import BaseGeometry
 from shapely.geometry import Polygon, shape, MultiPolygon
 from map_engraver.drawable.geometry.polygon_drawer import PolygonDrawer
 from map_engraver.drawable.layout.background import Background
-from map_engraver.data import geo_canvas_ops, osm_shapely_ops
+from map_engraver.data import geo_canvas_ops
 from map_engraver.data.geo.geo_coordinate import GeoCoordinate
 from pathlib import Path
 
@@ -167,10 +166,7 @@ wgs84_canvas_transformer = geo_canvas_ops.build_transformer(
 
 # Transform array of polygons to canvas:
 def transform_geom_to_canvas(geom: BaseGeometry):
-    if isinstance(geom, OsmPoint):
-        return osm_shapely_ops.transform(wgs84_canvas_transformer, geom)
-    else:
-        return ops.transform(wgs84_canvas_transformer, geom)
+    return ops.transform(wgs84_canvas_transformer, geom)
 
 
 def transform_geoms_to_canvas(geoms: List[BaseGeometry]) -> List[BaseGeometry]:
@@ -196,7 +192,11 @@ milepost_osm_to_shapely = OsmToShapely(milepost_osm)
 milepost_points = milepost_osm_to_shapely.nodes_to_points(
     milepost_osm_subset.nodes
 )
-milepost_points = transform_geoms_to_canvas(milepost_points)
+milepost_points = {
+    key: transform_geom_to_canvas(value)
+    for key, value
+    in milepost_points.items()
+}
 
 # Create the canvas
 output_path.mkdir(parents=True, exist_ok=True)
@@ -232,7 +232,7 @@ urban_drawer.fill_color = urban_fill_color
 urban_drawer.draw(canvas)
 
 # Milepost Symbols
-milepost_drawer = MilepostDrawer()
+milepost_drawer = MilepostDrawer(milepost_osm)
 milepost_drawer.points = milepost_points
 milepost_drawer.draw(canvas)
 
