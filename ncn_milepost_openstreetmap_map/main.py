@@ -3,6 +3,8 @@ from datetime import datetime
 import cairocffi
 import pangocffi
 from map_engraver.canvas.canvas_coordinate import CanvasCoordinate
+from map_engraver.data.geo_canvas_ops.geo_canvas_scale import GeoCanvasScale
+from map_engraver.data.geo_canvas_ops.geo_canvas_transformers_builder import GeoCanvasTransformersBuilder
 from map_engraver.data.osm import Element, Node
 from map_engraver.data.osm.filter import filter_elements
 from map_engraver.data.osm.parser import Parser
@@ -17,7 +19,6 @@ from shapely.geometry.base import BaseGeometry
 from shapely.geometry import Polygon, shape, MultiPolygon
 from map_engraver.drawable.geometry.polygon_drawer import PolygonDrawer
 from map_engraver.drawable.layout.background import Background
-from map_engraver.data import geo_canvas_ops
 from map_engraver.data.geo.geo_coordinate import GeoCoordinate
 from pathlib import Path
 
@@ -154,14 +155,14 @@ british_crs = pyproj.CRS.from_epsg(27700)
 geo_width = 800000  # In meters
 canvas_width = CanvasUnit.from_px(720)
 canvas_height = CanvasUnit.from_px(1180)
-geo_canvas_scale = geo_canvas_ops.GeoCanvasScale(geo_width, canvas_width)
-origin_for_geo = GeoCoordinate(-80000, 1225000, british_crs)
-wgs84_canvas_transformer = geo_canvas_ops.build_transformer(
-    crs=british_crs,
-    scale=geo_canvas_scale,
-    origin_for_geo=origin_for_geo,
-    data_crs=wgs84_crs
-)
+
+builder = GeoCanvasTransformersBuilder()
+builder.set_crs(british_crs)
+builder.set_data_crs(wgs84_crs)
+builder.set_scale(GeoCanvasScale(geo_width, canvas_width))
+builder.set_origin_for_geo(GeoCoordinate(-80000, 1225000, british_crs))
+builder.set_origin_for_canvas(CanvasCoordinate.origin())
+wgs84_canvas_transformer = builder.build_crs_to_canvas_transformer()
 
 
 # Transform array of polygons to canvas:
