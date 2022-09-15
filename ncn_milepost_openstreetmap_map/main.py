@@ -4,7 +4,8 @@ import cairocffi
 import pangocffi
 from map_engraver.canvas.canvas_coordinate import CanvasCoordinate
 from map_engraver.data.geo_canvas_ops.geo_canvas_scale import GeoCanvasScale
-from map_engraver.data.geo_canvas_ops.geo_canvas_transformers_builder import GeoCanvasTransformersBuilder
+from map_engraver.data.geo_canvas_ops.geo_canvas_transformers_builder import \
+    GeoCanvasTransformersBuilder
 from map_engraver.data.osm import Element, Node
 from map_engraver.data.osm.filter import filter_elements
 from map_engraver.data.osm.parser import Parser
