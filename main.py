@@ -69,8 +69,8 @@ download_and_extract_shape(ne_urban_url)
 download_mileposts()
 
 # Path data
-cache_path = Path(__file__).parent.parent.joinpath('cache')
-output_path = Path(__file__).parent.parent.joinpath('output')
+cache_path = Path(__file__).parent.joinpath('cache')
+output_path = Path(__file__).parent.joinpath('output')
 
 
 # Convert Shapefiles to shapely geometry.
@@ -241,13 +241,13 @@ milepost_drawer.draw(canvas)
 # Map title text
 text_margin = CanvasUnit.from_px(40)
 title_font = pangocffi.FontDescription()
-title_font.set_family('Helvetica')
-title_font.set_weight(pangocffi.Weight.BOLD)
-title_font.set_size(CanvasUnit.from_px(16).pango)
+title_font.family = 'Helvetica'
+title_font.weight = pangocffi.Weight.BOLD
+title_font.size = CanvasUnit.from_px(16).pango
 title = Layout(canvas)
-title.pango_layout.set_font_description(title_font)
-title.pango_layout.set_spacing(CanvasUnit.from_px(6).pango)
-title.set_markup('Millennium Mileposts in the United Kingdom by Type')
+title.pango_layout.font_description = title_font
+title.pango_layout.spacing = CanvasUnit.from_px(6).pango
+title.apply_markup('Millennium Mileposts in the United Kingdom by Type')
 title.color = text_fill_color
 title.position = CanvasCoordinate.from_px(text_margin.px, text_margin.px)
 title.width = CanvasUnit.from_px(300)
@@ -257,12 +257,12 @@ title_drawer.draw(canvas)
 
 # "Last Updated" text
 date_font = pangocffi.FontDescription()
-date_font.set_family('Helvetica')
-date_font.set_weight(pangocffi.Weight.NORMAL)
-date_font.set_size(CanvasUnit.from_px(12).pango)
+date_font.family = 'Helvetica'
+date_font.weight = pangocffi.Weight.NORMAL
+date_font.size = CanvasUnit.from_px(12).pango
 date = Layout(canvas)
-date.pango_layout.set_font_description(date_font)
-date.set_markup(datetime.now().strftime('Last Updated: %Y-%m-%d'))
+date.pango_layout.font_description = date_font
+date.apply_markup(datetime.now().strftime('Last Updated: %Y-%m-%d'))
 date.width = canvas_width
 date.color = text_fill_color
 date.position = CanvasCoordinate(
@@ -275,9 +275,9 @@ date_drawer.draw(canvas)
 
 # Map legend
 legend_font = pangocffi.FontDescription()
-legend_font.set_family('Helvetica')
-legend_font.set_weight(pangocffi.Weight.NORMAL)
-legend_font.set_size(CanvasUnit.from_px(12).pango)
+legend_font.family = 'Helvetica'
+legend_font.weight = pangocffi.Weight.NORMAL
+legend_font.size = CanvasUnit.from_px(12).pango
 legend_position = CanvasCoordinate(
     text_margin,
     title.position.y + title.logical_extents.height + CanvasUnit.from_px(20)

@@ -21,10 +21,10 @@ install: ## install dependencies
 main: main-light main-dark  ## runs the main script which generates the map
 
 main-light: ## runs the main script which generates the light-mode map
-	poetry run python ncn_milepost_openstreetmap_map/main.py --light
+	poetry run python main.py --light
 
 main-dark: ## runs the main script which generates the dark-mode map
-	poetry run python ncn_milepost_openstreetmap_map/main.py --dark
+	poetry run python main.py --dark
 
 lint: ## Checks for linting errors
 	poetry run flake8

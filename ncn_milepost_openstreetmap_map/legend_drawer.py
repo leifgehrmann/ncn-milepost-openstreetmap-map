@@ -49,20 +49,20 @@ class LegendDrawer:
 
     def draw(self, canvas: Canvas):
         r1c1 = Layout(canvas)
-        r1c1.pango_layout.set_font_description(self.font)
-        r1c1.set_text('Mills')
+        r1c1.pango_layout.font_description = self.font
+        r1c1.text = 'Mills'
         r1c1.color = self.text_color
         r1c2 = Layout(canvas)
-        r1c2.pango_layout.set_font_description(self.font)
-        r1c2.set_text('Rowe')
+        r1c2.pango_layout.font_description = self.font
+        r1c2.text = 'Rowe'
         r1c2.color = self.text_color
         r2c1 = Layout(canvas)
-        r2c1.pango_layout.set_font_description(self.font)
-        r2c1.set_text('McColl')
+        r2c1.pango_layout.font_description = self.font
+        r2c1.text = 'McColl'
         r2c1.color = self.text_color
         r2c2 = Layout(canvas)
-        r2c2.pango_layout.set_font_description(self.font)
-        r2c2.set_text('Dudgeon')
+        r2c2.pango_layout.font_description = self.font
+        r2c2.text = 'Dudgeon'
         r2c2.color = self.text_color
 
         c1_x = self.position.x
