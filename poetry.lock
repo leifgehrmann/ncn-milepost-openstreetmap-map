@@ -174,20 +174,6 @@ pycodestyle = ">=2.7.0,<2.8.0"
 pyflakes = ">=2.3.0,<2.4.0"
 
 [[package]]
-name = "gdal"
-version = "3.4.3"
-description = "GDAL: Geospatial Data Abstraction Library"
-category = "main"
-optional = false
-python-versions = ">=3.6.0"
-files = [
-    {file = "GDAL-3.4.3.tar.gz", hash = "sha256:f4f4b0bb34073b164c5a05a1b0eb44af47349e5606eb7b75244c2167ac462f36"},
-]
-
-[package.extras]
-numpy = ["numpy (>1.0.0)"]
-
-[[package]]
 name = "map-engraver"
 version = "0.1.0"
 description = "Tool for creating vector maps in the style of engraved maps"
@@ -200,7 +186,6 @@ develop = false
 [package.dependencies]
 cairocffi = "^1.4.0"
 CairoSVG = "^2.7.0"
-GDAL = "3.4.3"
 pangocairocffi = "^0.7.0"
 pangocffi = "^0.11.0"
 Pillow = "^9.3.0"
@@ -212,7 +197,7 @@ tqdm = "^4.64.0"
 type = "git"
 url = "https://github.com/leifgehrmann/map-engraver.git"
 reference = "HEAD"
-resolved_reference = "734f4747e1b2a84c018ccbdcbc4d094ef2249160"
+resolved_reference = "bedc4f83ee40fac694db83cf95895a199d56b0b2"
 
 [[package]]
 name = "mccabe"
