@@ -13,8 +13,8 @@ pyproj = "^3.1.0"
 pangocffi = "^0.13.0"
 map-engraver = {git = "https://github.com/leifgehrmann/map-engraver.git"}
 
-[tool.poetry.dev-dependencies]
-flake8 = "^3.9.2"
+[tool.poetry.group.dev.dependencies]
+flake8 = "7"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
